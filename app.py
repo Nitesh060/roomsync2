@@ -1,11 +1,15 @@
 from flask import Flask, request, jsonify, session, render_template, send_file
-import sqlite3, io
-from datetime import datetime
+import sqlite3
+import io
 from functools import wraps
 import openpyxl
 
 app = Flask(__name__)
-app.secret_key = "roomsync_secure_key_change_this"
+app.secret_key = "roomsync_super_secure_key_change_this"
+
+# ---- SESSION FIX FOR RENDER HTTPS ----
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = True
 
 DB = "roomsync.db"
 
@@ -37,8 +41,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS rooms (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
-            capacity INTEGER DEFAULT 0,
-            active INTEGER DEFAULT 1
+            capacity INTEGER DEFAULT 0
         )
     """)
 
@@ -51,34 +54,37 @@ def init_db():
             date TEXT NOT NULL,
             start TEXT NOT NULL,
             end TEXT NOT NULL,
-            booked_by TEXT NOT NULL,
-            created TEXT DEFAULT (datetime('now','localtime'))
+            booked_by TEXT NOT NULL
         )
     """)
 
     # DEFAULT ADMIN
     c.execute("SELECT * FROM users WHERE emp_id='admin'")
     if not c.fetchone():
-        c.execute("INSERT INTO users (emp_id,name,password,role) VALUES (?,?,?,?)",
-                  ("admin","Administrator","admin123","admin"))
+        c.execute("""
+            INSERT INTO users (emp_id,name,password,role)
+            VALUES (?,?,?,?)
+        """, ("admin", "Administrator", "admin123", "admin"))
 
     # DEFAULT STAFF
-    for emp in [("63326","Staff 63326"),
-                ("63329","Staff 63329"),
-                ("63324","Staff 63324")]:
-        c.execute("INSERT OR IGNORE INTO users (emp_id,name,password,role) VALUES (?,?,?,?)",
-                  (emp[0], emp[1], f"afpl@{emp[0]}", "staff"))
+    staff_list = ["63326", "63329", "63324"]
+    for emp in staff_list:
+        c.execute("""
+            INSERT OR IGNORE INTO users (emp_id,name,password,role)
+            VALUES (?,?,?,?)
+        """, (emp, f"Staff {emp}", f"afpl@{emp}", "staff"))
 
     # DEFAULT ROOMS
-    for r in [("Boardroom A",12),
-              ("Meeting Room B",6),
-              ("Meeting Room C",6)]:
+    rooms = [("Boardroom A",12),
+             ("Meeting Room B",6),
+             ("Meeting Room C",6)]
+    for r in rooms:
         c.execute("INSERT OR IGNORE INTO rooms (name,capacity) VALUES (?,?)", r)
 
     conn.commit()
     conn.close()
 
-# IMPORTANT: CALL INIT HERE (NOT INSIDE __main__)
+# IMPORTANT — RUN DB INIT HERE (NOT INSIDE __main__)
 init_db()
 
 # =========================
@@ -113,19 +119,18 @@ def index():
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    emp_id = data.get("emp_id","").strip()
-    password = data.get("password","")
+    emp_id = data.get("emp_id")
+    password = data.get("password")
 
     conn = get_db()
     user = conn.execute(
         "SELECT * FROM users WHERE emp_id=? AND password=?",
-        (emp_id,password)
+        (emp_id, password)
     ).fetchone()
     conn.close()
 
     if user:
         session["emp_id"] = user["emp_id"]
-        session["name"] = user["name"]
         session["role"] = user["role"]
         return jsonify({"success": True, "role": user["role"]})
 
@@ -143,9 +148,7 @@ def logout():
 @login_required
 def get_bookings():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM bookings ORDER BY date,start"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM bookings ORDER BY date,start").fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -159,15 +162,12 @@ def book():
     start = data.get("start")
     end = data.get("end")
 
-    if not all([room,title,date,start,end]):
-        return jsonify({"success": False})
-
     conn = get_db()
 
     clash = conn.execute("""
         SELECT * FROM bookings
         WHERE room=? AND date=? AND start < ? AND end > ?
-    """,(room,date,end,start)).fetchone()
+    """, (room, date, end, start)).fetchone()
 
     if clash:
         conn.close()
@@ -176,7 +176,7 @@ def book():
     conn.execute("""
         INSERT INTO bookings (room,title,date,start,end,booked_by)
         VALUES (?,?,?,?,?,?)
-    """,(room,title,date,start,end,session["emp_id"]))
+    """, (room, title, date, start, end, session["emp_id"]))
 
     conn.commit()
     conn.close()
@@ -205,6 +205,37 @@ def cancel(bid):
     return jsonify({"success": True})
 
 # =========================
+# ROOMS (ADMIN)
+# =========================
+@app.route("/add_room", methods=["POST"])
+@login_required
+@admin_required
+def add_room():
+    data = request.get_json()
+    name = data.get("name")
+    capacity = data.get("capacity")
+
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO rooms (name,capacity) VALUES (?,?)",
+            (name, capacity)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        return jsonify({"success": False, "error": "Room already exists"})
+
+@app.route("/get_rooms")
+@login_required
+def get_rooms():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM rooms").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+# =========================
 # EXPORT (ADMIN)
 # =========================
 @app.route("/export/<month>")
@@ -216,7 +247,7 @@ def export(month):
         SELECT * FROM bookings
         WHERE strftime('%m', date)=?
         ORDER BY date,start
-    """,(month,)).fetchall()
+    """, (month,)).fetchall()
     conn.close()
 
     wb = openpyxl.Workbook()
@@ -245,7 +276,7 @@ def export(month):
     )
 
 # =========================
-# RUN LOCAL ONLY
+# LOCAL RUN
 # =========================
 if __name__ == "__main__":
     app.run(debug=True)
