@@ -1,11 +1,9 @@
-from flask import Flask, request, jsonify, session, render_template, send_file
+from flask import Flask, request, jsonify, session, render_template
 import sqlite3
-import io
 from functools import wraps
-import openpyxl
 
 app = Flask(__name__)
-app.secret_key = "roomsync_secure_key_change_this"
+app.secret_key = "roomsync_secure_key"
 
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = True
@@ -27,7 +25,8 @@ def init_db():
             emp_id TEXT UNIQUE,
             name TEXT,
             password TEXT,
-            role TEXT
+            role TEXT,
+            department TEXT
         )
     """)
 
@@ -51,7 +50,11 @@ def init_db():
         )
     """)
 
-    c.execute("INSERT OR IGNORE INTO users VALUES (1,'admin','Administrator','admin123','admin')")
+    c.execute("""
+        INSERT OR IGNORE INTO users 
+        (id,emp_id,name,password,role,department)
+        VALUES (1,'admin','Administrator','admin123','admin','Management')
+    """)
 
     conn.commit()
     conn.close()
@@ -78,8 +81,6 @@ def admin_required(f):
 def index():
     return render_template("conference_booking.html")
 
-# ---------------- AUTH ----------------
-
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
@@ -105,24 +106,24 @@ def logout():
     session.clear()
     return jsonify({"success": True})
 
-# ---------------- STAFF MANAGEMENT ----------------
-
 @app.route("/add_user", methods=["POST"])
 @login_required
 @admin_required
 def add_user():
     data = request.get_json()
-    emp_id = data.get("emp_id")
-    name = data.get("name")
-    password = data.get("password")
-    role = data.get("role")
 
     try:
         conn = get_db()
-        conn.execute(
-            "INSERT INTO users (emp_id,name,password,role) VALUES (?,?,?,?)",
-            (emp_id, name, password, role)
-        )
+        conn.execute("""
+            INSERT INTO users (emp_id,name,password,role,department)
+            VALUES (?,?,?,?,?)
+        """, (
+            data.get("emp_id"),
+            data.get("name"),
+            data.get("password"),
+            data.get("role"),
+            data.get("department")
+        ))
         conn.commit()
         conn.close()
         return jsonify({"success": True})
@@ -134,35 +135,23 @@ def add_user():
 @admin_required
 def get_users():
     conn = get_db()
-    rows = conn.execute("SELECT emp_id,name,role FROM users").fetchall()
+    rows = conn.execute(
+        "SELECT emp_id,name,role,department FROM users"
+    ).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
-
-@app.route("/delete_user/<emp_id>", methods=["DELETE"])
-@login_required
-@admin_required
-def delete_user(emp_id):
-    conn = get_db()
-    conn.execute("DELETE FROM users WHERE emp_id=?", (emp_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
-
-# ---------------- ROOM MANAGEMENT ----------------
 
 @app.route("/add_room", methods=["POST"])
 @login_required
 @admin_required
 def add_room():
     data = request.get_json()
-    name = data.get("name")
-    capacity = data.get("capacity")
 
     try:
         conn = get_db()
         conn.execute(
             "INSERT INTO rooms (name,capacity) VALUES (?,?)",
-            (name, capacity)
+            (data.get("name"), data.get("capacity"))
         )
         conn.commit()
         conn.close()
@@ -178,7 +167,57 @@ def get_rooms():
     conn.close()
     return jsonify([dict(r) for r in rows])
 
-# ---------------- BOOKINGS ----------------
+def time_to_minutes(t):
+    h, m = map(int, t.split(":"))
+    return h*60 + m
+
+@app.route("/book", methods=["POST"])
+@login_required
+def book():
+    data = request.get_json()
+
+    room = data.get("room")
+    date = data.get("date")
+    start = data.get("start")
+    end = data.get("end")
+
+    start_m = time_to_minutes(start)
+    end_m = time_to_minutes(end)
+
+    conn = get_db()
+
+    bookings = conn.execute("""
+        SELECT * FROM bookings
+        WHERE room=? AND date=?
+    """, (room, date)).fetchall()
+
+    for b in bookings:
+        existing_start = time_to_minutes(b["start"])
+        existing_end = time_to_minutes(b["end"])
+
+        if start_m < existing_end and end_m > existing_start:
+            conn.close()
+            return jsonify({
+                "success": False,
+                "clash": True
+            })
+
+    conn.execute("""
+        INSERT INTO bookings (room,title,date,start,end,booked_by)
+        VALUES (?,?,?,?,?,?)
+    """, (
+        room,
+        data.get("title"),
+        date,
+        start,
+        end,
+        session["emp_id"]
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True})
 
 @app.route("/get_bookings")
 @login_required
@@ -187,28 +226,6 @@ def get_bookings():
     rows = conn.execute("SELECT * FROM bookings").fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
-
-@app.route("/book", methods=["POST"])
-@login_required
-def book():
-    data = request.get_json()
-    conn = get_db()
-
-    conn.execute("""
-        INSERT INTO bookings (room,title,date,start,end,booked_by)
-        VALUES (?,?,?,?,?,?)
-    """, (
-        data.get("room"),
-        data.get("title"),
-        data.get("date"),
-        data.get("start"),
-        data.get("end"),
-        session["emp_id"]
-    ))
-
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
 
 @app.route("/cancel/<int:bid>", methods=["DELETE"])
 @login_required
