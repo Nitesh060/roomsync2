@@ -6,7 +6,868 @@
 <title>RoomSync — Conference Room Booking</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
+  :root {<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoomSync — Conference Room Booking</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
   :root {
+    --bg:      #0f0f13;
+    --surface: #16161d;
+    --card:    #1e1e28;
+    --border:  #2a2a38;
+    --accent:  #e8c547;
+    --accent2: #4fc3f7;
+    --danger:  #ff6b6b;
+    --success: #69db7c;
+    --text:    #e8e8f0;
+    --muted:   #7a7a9a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ═══════════════ AUTH ═══════════════ */
+  #auth-screen {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 30% 20%, #1a1a2e 0%, var(--bg) 60%);
+  }
+
+  .auth-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 52px 44px;
+    width: 400px;
+    max-width: 95vw;
+    box-shadow: 0 40px 80px rgba(0,0,0,.5);
+    animation: fadeUp .5s ease both;
+  }
+
+  .auth-logo  { font-family:'DM Serif Display',serif; font-size:2rem; color:var(--accent); }
+  .auth-sub   { color:var(--muted); font-size:.85rem; margin-bottom:32px; }
+
+  .auth-box label {
+    display:block; font-size:.75rem; font-weight:600;
+    letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:7px;
+  }
+
+  .auth-box input {
+    width:100%; background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:12px 14px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:.95rem;
+    outline:none; transition:border-color .2s; margin-bottom:18px;
+  }
+  .auth-box input:focus { border-color:var(--accent); }
+
+  .auth-error {
+    background:rgba(255,107,107,.12); border:1px solid rgba(255,107,107,.3);
+    border-radius:8px; padding:10px 14px; font-size:.84rem;
+    color:var(--danger); margin-bottom:16px; display:none;
+  }
+
+  /* ═══════════════ BUTTONS ═══════════════ */
+  .btn {
+    border:none; border-radius:10px; padding:11px 18px;
+    font-family:'DM Sans',sans-serif; font-size:.9rem;
+    font-weight:600; cursor:pointer; transition:all .2s;
+  }
+  .btn-primary { background:var(--accent); color:#0f0f13; width:100%; padding:13px; }
+  .btn-primary:hover { opacity:.88; transform:translateY(-1px); }
+  .btn-sm { padding:6px 12px; font-size:.78rem; }
+  .btn-danger { background:rgba(255,107,107,.15); color:var(--danger); border:1px solid rgba(255,107,107,.3); }
+  .btn-danger:hover { background:rgba(255,107,107,.25); }
+  .btn-ghost { background:none; border:1px solid var(--border); color:var(--muted); }
+  .btn-ghost:hover { border-color:var(--accent2); color:var(--accent2); }
+  .btn-success-sm { background:rgba(105,219,124,.15); color:var(--success); border:1px solid rgba(105,219,124,.3); padding:6px 12px; font-size:.78rem; }
+  .btn-success-sm:hover { background:rgba(105,219,124,.25); }
+
+  /* ═══════════════ APP SHELL ═══════════════ */
+  #app { display:none; min-height:100vh; }
+
+  header {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100;
+  }
+
+  .logo { font-family:'DM Serif Display',serif; font-size:1.4rem; color:var(--accent); }
+
+  .header-right { display:flex; align-items:center; gap:14px; }
+
+  .user-pill {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:20px; padding:5px 14px;
+    font-size:.8rem; color:var(--muted);
+  }
+  .user-pill span { color:var(--accent2); font-weight:600; }
+
+  /* ═══════════════ TABS ═══════════════ */
+  .tabs {
+    display:flex; gap:4px;
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:0 28px;
+  }
+
+  .tab {
+    padding:14px 20px; font-size:.88rem; font-weight:500;
+    color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;
+    transition:all .2s; white-space:nowrap;
+  }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-admin { display:none; }
+
+  /* ═══════════════ MAIN CONTENT ═══════════════ */
+  main { max-width:1160px; margin:0 auto; padding:32px 20px; }
+
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* ═══════════════ CARDS ═══════════════ */
+  .card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:24px;
+  }
+
+  .card-title {
+    font-family:'DM Serif Display',serif; font-size:1.15rem;
+    margin-bottom:20px; display:flex; align-items:center; gap:10px;
+  }
+  .card-icon {
+    width:30px; height:30px; background:rgba(232,197,71,.12);
+    border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:15px;
+  }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1.4fr; gap:24px; align-items:start; }
+  @media(max-width:780px){ .grid-2 { grid-template-columns:1fr; } }
+
+  /* ═══════════════ FORM ═══════════════ */
+  .fg { margin-bottom:15px; }
+  .fg label {
+    display:block; font-size:.74rem; font-weight:600;
+    letter-spacing:.07em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:7px;
+  }
+  .fg input, .fg select, .fg textarea {
+    width:100%; background:var(--surface); border:1px solid var(--border);
+    border-radius:9px; padding:10px 13px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:.88rem;
+    outline:none; transition:border-color .2s;
+    -webkit-appearance:none; appearance:none;
+  }
+  .fg input:focus, .fg select:focus { border-color:var(--accent); }
+  .fg-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  /* ═══════════════ BOOKINGS LIST ═══════════════ */
+  .filter-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+  .filter-bar select, .filter-bar input {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:8px 12px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:.8rem;
+    outline:none; -webkit-appearance:none; appearance:none;
+  }
+  .filter-bar input { flex:1; min-width:130px; }
+
+  .badge {
+    background:rgba(232,197,71,.15); border-radius:6px;
+    padding:4px 10px; font-size:.76rem; color:var(--accent); font-weight:600;
+  }
+
+  .bookings-wrap { display:flex; flex-direction:column; gap:9px; }
+
+  .bk {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:11px; padding:13px 15px;
+    display:flex; align-items:center; gap:12px;
+    transition:border-color .2s; animation:fadeUp .25s ease both;
+  }
+  .bk:hover { border-color:rgba(79,195,247,.3); }
+  .bk.mine  { border-left:3px solid var(--accent2); }
+
+  .bk-info { flex:1; min-width:0; }
+  .bk-room { font-weight:600; font-size:.88rem; color:var(--accent2); margin-bottom:3px; }
+  .bk-meta { font-size:.76rem; color:var(--muted); line-height:1.5; }
+  .bk-meta em { color:var(--text); font-style:normal; opacity:.85; }
+
+  .bk-who {
+    font-size:.72rem; font-weight:600; background:var(--card);
+    border-radius:6px; padding:4px 9px; white-space:nowrap; color:var(--muted);
+  }
+
+  .empty { text-align:center; padding:38px 20px; color:var(--muted); font-size:.9rem; }
+  .empty-icon { font-size:2rem; margin-bottom:10px; }
+
+  /* ═══════════════ ROOM CHIPS ═══════════════ */
+  .rooms-chips { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+  @media(max-width:460px){ .rooms-chips { grid-template-columns:1fr 1fr; } }
+
+  .chip {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:9px; padding:10px; font-size:.78rem;
+    font-weight:500; text-align:center; transition:all .2s;
+  }
+  .chip.busy { border-color:rgba(255,107,107,.4); background:rgba(255,107,107,.06); color:var(--danger); }
+  .chip.free { border-color:rgba(105,219,124,.4); background:rgba(105,219,124,.06); color:var(--success); }
+  .chip-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; }
+  .chip.busy .chip-dot { background:var(--danger); }
+  .chip.free .chip-dot { background:var(--success); }
+  .chip-status { font-size:.68rem; margin-top:3px; opacity:.7; }
+
+  /* ═══════════════ ADMIN TABLES ═══════════════ */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  th, td { padding:11px 14px; text-align:left; border-bottom:1px solid var(--border); }
+  th { font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); font-weight:600; }
+  tr:hover td { background:rgba(255,255,255,.02); }
+  .role-badge {
+    display:inline-block; padding:3px 9px; border-radius:5px; font-size:.72rem; font-weight:600;
+  }
+  .role-admin { background:rgba(232,197,71,.15); color:var(--accent); }
+  .role-staff { background:rgba(79,195,247,.12); color:var(--accent2); }
+
+  /* ═══════════════ MODAL ═══════════════ */
+  .overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.7);
+    z-index:999; display:flex; align-items:center; justify-content:center;
+    backdrop-filter:blur(4px);
+    opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .overlay.show { opacity:1; pointer-events:all; }
+
+  .modal {
+    background:var(--card); border-radius:18px;
+    padding:34px; max-width:430px; width:92vw;
+    transform:scale(.9); transition:transform .25s;
+  }
+  .overlay.show .modal { transform:scale(1); }
+
+  .modal-icon { font-size:2.2rem; margin-bottom:12px; }
+  .modal-title { font-family:'DM Serif Display',serif; font-size:1.35rem; margin-bottom:10px; }
+  .modal-body  { color:var(--muted); font-size:.88rem; line-height:1.65; margin-bottom:22px; }
+  .modal-body strong { color:var(--text); }
+  .modal.clash-modal { border:1px solid rgba(255,107,107,.4); box-shadow:0 0 60px rgba(255,107,107,.12); }
+  .modal.clash-modal .modal-title { color:var(--danger); }
+
+  /* ═══════════════ TOAST ═══════════════ */
+  #toast {
+    position:fixed; bottom:24px; right:24px; z-index:1001;
+    padding:11px 18px; border-radius:10px;
+    font-size:.86rem; font-weight:600;
+    transform:translateY(60px); opacity:0;
+    transition:all .3s; pointer-events:none;
+  }
+  #toast.ok   { background:var(--success); color:#0a1f0d; }
+  #toast.err  { background:var(--danger);  color:#fff; }
+  #toast.show { transform:translateY(0); opacity:1; }
+
+  /* ═══════════════ UTILS ═══════════════ */
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(14px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .mt-16 { margin-top:16px; }
+  .section-hint { font-size:.8rem; color:var(--muted); margin-bottom:16px; }
+  hr.sep { border:none; border-top:1px solid var(--border); margin:20px 0; }
+
+  /* ═══════════════ EXPORT ROW ═══════════════ */
+  .export-row {
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  }
+  .export-row select {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:9px; padding:9px 13px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:.88rem;
+    outline:none; -webkit-appearance:none; flex:1; min-width:150px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ AUTH ══════════════════ -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">RoomSync</div>
+    <div class="auth-sub">Internal staff portal — authorised access only</div>
+
+    <label>Employee ID</label>
+    <input type="text" id="auth-id" placeholder="e.g. admin or EMP001" autocomplete="off">
+
+    <label>Password</label>
+    <input type="password" id="auth-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+
+    <div class="auth-error" id="auth-err">Invalid credentials. Please try again.</div>
+
+    <button class="btn btn-primary" onclick="doLogin()">Sign In →</button>
+
+    <p style="text-align:center;margin-top:14px;font-size:.75rem;color:var(--muted);">
+      🔒 Restricted to authorised firm staff only
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════ APP ══════════════════ -->
+<div id="app">
+
+  <header>
+    <div class="logo">RoomSync</div>
+    <div class="header-right">
+      <div class="user-pill">Signed in as <span id="hdr-user"></span></div>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Logout</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-page="book" onclick="switchTab(this)">📅 Book a Room</div>
+    <div class="tab" data-page="bookings" onclick="switchTab(this)">📋 All Bookings</div>
+    <div class="tab tab-admin" data-page="users" onclick="switchTab(this)">👥 Manage Staff</div>
+    <div class="tab tab-admin" data-page="rooms-admin" onclick="switchTab(this)">🏢 Manage Rooms</div>
+    <div class="tab tab-admin" data-page="export-tab" onclick="switchTab(this)">📊 Export</div>
+  </div>
+
+  <main>
+
+    <!-- ── BOOK PAGE ── -->
+    <div class="page active" id="page-book">
+      <div class="grid-2">
+
+        <!-- Form -->
+        <div>
+          <div class="card">
+            <div class="card-title"><div class="card-icon">📅</div>New Booking</div>
+
+            <div class="fg">
+              <label>Conference Room</label>
+              <select id="f-room"><option value="">— Select a room —</option></select>
+            </div>
+            <div class="fg">
+              <label>Meeting Title / Purpose</label>
+              <input type="text" id="f-title" placeholder="e.g. Q3 Review, Client Call…">
+            </div>
+            <div class="fg">
+              <label>Date</label>
+              <input type="date" id="f-date">
+            </div>
+            <div class="fg">
+              <label>Time Slot</label>
+              <div class="fg-row">
+                <input type="time" id="f-start" title="Start">
+                <input type="time" id="f-end"   title="End">
+              </div>
+              <small style="color:var(--muted);font-size:.72rem;margin-top:5px;display:block;">Start → End</small>
+            </div>
+
+            <button class="btn btn-primary mt-16" onclick="doBook()">✓ Confirm Booking</button>
+          </div>
+        </div>
+
+        <!-- Live status -->
+        <div>
+          <div class="card">
+            <div class="card-title"><div class="card-icon">🏢</div>Live Room Status — Today</div>
+            <div class="rooms-chips" id="live-status"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── ALL BOOKINGS PAGE ── -->
+    <div class="page" id="page-bookings">
+      <div class="card">
+        <div class="card-title"><div class="card-icon">📋</div>All Bookings</div>
+
+        <div class="filter-bar">
+          <select id="fl-room" onchange="renderBookings()">
+            <option value="">All Rooms</option>
+          </select>
+          <input type="date" id="fl-date" onchange="renderBookings()" placeholder="Filter by date">
+          <span class="badge" id="bk-count">0 bookings</span>
+        </div>
+
+        <div class="bookings-wrap" id="bookings-list"></div>
+      </div>
+    </div>
+
+    <!-- ── MANAGE STAFF (admin) ── -->
+    <div class="page" id="page-users">
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title"><div class="card-icon">➕</div>Add Staff Member</div>
+        <div class="fg-row">
+          <div class="fg"><label>Employee ID</label><input type="text" id="nu-id" placeholder="EMP004"></div>
+          <div class="fg"><label>Full Name</label><input type="text" id="nu-name" placeholder="Full Name"></div>
+        </div>
+        <div class="fg-row">
+          <div class="fg"><label>Password</label><input type="password" id="nu-pw" placeholder="••••••"></div>
+          <div class="fg"><label>Role</label>
+            <select id="nu-role"><option value="staff">Staff</option><option value="admin">Admin</option></select>
+          </div>
+        </div>
+        <button class="btn btn-success-sm mt-16" onclick="addUser()">+ Add User</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="card-icon">👥</div>Staff Directory</div>
+        <div class="table-wrap">
+          <table id="users-table">
+            <thead><tr><th>Emp ID</th><th>Name</th><th>Role</th><th>Action</th></tr></thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MANAGE ROOMS (admin) ── -->
+    <div class="page" id="page-rooms-admin">
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title"><div class="card-icon">➕</div>Add Conference Room</div>
+        <div class="fg-row">
+          <div class="fg"><label>Room Name</label><input type="text" id="nr-name" placeholder="e.g. Boardroom D"></div>
+          <div class="fg"><label>Capacity</label><input type="number" id="nr-cap" placeholder="10" min="1"></div>
+        </div>
+        <button class="btn btn-success-sm mt-16" onclick="addRoom()">+ Add Room</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="card-icon">🏢</div>All Rooms</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Room</th><th>Capacity</th><th>Action</th></tr></thead>
+            <tbody id="rooms-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EXPORT (admin) ── -->
+    <div class="page" id="page-export-tab">
+      <div class="card">
+        <div class="card-title"><div class="card-icon">📊</div>Export Booking Report</div>
+        <p class="section-hint">Download a monthly Excel report of all bookings for records or analysis.</p>
+        <div class="export-row">
+          <select id="exp-year" onchange="populateExportMonths()"></select>
+          <select id="exp-month">
+            <option value="01">January</option><option value="02">February</option>
+            <option value="03">March</option><option value="04">April</option>
+            <option value="05">May</option><option value="06">June</option>
+            <option value="07">July</option><option value="08">August</option>
+            <option value="09">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <button class="btn btn-primary" style="width:auto;padding:10px 24px;" onclick="doExport()">
+            ⬇ Download Excel
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════════════ CLASH MODAL ══════════════════ -->
+<div class="overlay" id="clash-overlay">
+  <div class="modal clash-modal">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title">Booking Clash!</div>
+    <div class="modal-body" id="clash-body"></div>
+    <button class="btn btn-ghost" style="width:100%;" onclick="closeClash()">
+      ← Change Time / Room
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════ TOAST ══════════════════ -->
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let ME = null;       // { emp_id, name, role }
+let ROOMS = [];      // from server
+let BOOKINGS = [];   // from server
+let USERS = [];      // admin only
+
+// ════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════
+async function doLogin() {
+  const emp_id   = document.getElementById("auth-id").value.trim();
+  const password = document.getElementById("auth-pw").value;
+  const errEl    = document.getElementById("auth-err");
+
+  if (!emp_id || !password) {
+    errEl.textContent = "Please enter both Employee ID and Password.";
+    errEl.style.display = "block"; return;
+  }
+
+  const res  = await apiFetch("/login", "POST", { emp_id, password });
+  if (res.success) {
+    ME = { emp_id, name: res.name, role: res.role };
+    errEl.style.display = "none";
+    document.getElementById("auth-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("hdr-user").textContent = res.name || emp_id;
+
+    if (ME.role === "admin") {
+      document.querySelectorAll(".tab-admin").forEach(t => t.style.display = "block");
+    }
+
+    document.getElementById("f-date").value = todayStr();
+    populateExportYear();
+    await fetchAll();
+  } else {
+    errEl.textContent = res.error || "Invalid credentials.";
+    errEl.style.display = "block";
+  }
+}
+
+async function doLogout() {
+  await apiFetch("/logout");
+  ME = null; ROOMS = []; BOOKINGS = []; USERS = [];
+  document.getElementById("app").style.display = "none";
+  document.getElementById("auth-screen").style.display = "flex";
+  document.getElementById("auth-pw").value = "";
+  document.getElementById("auth-err").style.display = "none";
+  document.querySelectorAll(".tab-admin").forEach(t => t.style.display = "none");
+  switchTabById("book");
+}
+
+// ════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════
+function switchTab(el) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById("page-" + el.dataset.page).classList.add("active");
+
+  // Refresh data on tab switch
+  if (el.dataset.page === "bookings") renderBookings();
+  if (el.dataset.page === "users" && ME.role === "admin") loadUsers();
+  if (el.dataset.page === "rooms-admin" && ME.role === "admin") loadAdminRooms();
+}
+
+function switchTabById(id) {
+  const el = document.querySelector(`.tab[data-page="${id}"]`);
+  if (el) switchTab(el);
+}
+
+// ════════════════════════════════════════════
+// DATA FETCH
+// ════════════════════════════════════════════
+async function fetchAll() {
+  await Promise.all([fetchRooms(), fetchBookings()]);
+  populateRoomSelects();
+  renderBookings();
+  renderLiveStatus();
+}
+
+async function fetchRooms() {
+  const data = await apiFetch("/get_rooms");
+  ROOMS = Array.isArray(data) ? data : [];
+}
+
+async function fetchBookings() {
+  const data = await apiFetch("/get_bookings");
+  BOOKINGS = Array.isArray(data) ? data : [];
+}
+
+// ════════════════════════════════════════════
+// ROOM SELECTS
+// ════════════════════════════════════════════
+function populateRoomSelects() {
+  const opts = ROOMS.map(r => `<option value="${r.name}">${r.name} (${r.capacity} seats)</option>`).join("");
+  document.getElementById("f-room").innerHTML = `<option value="">— Select a room —</option>` + opts;
+
+  const flOpts = ROOMS.map(r => `<option value="${r.name}">${r.name}</option>`).join("");
+  document.getElementById("fl-room").innerHTML = `<option value="">All Rooms</option>` + flOpts;
+}
+
+// ════════════════════════════════════════════
+// BOOK
+// ════════════════════════════════════════════
+async function doBook() {
+  const room  = document.getElementById("f-room").value;
+  const title = document.getElementById("f-title").value.trim();
+  const date  = document.getElementById("f-date").value;
+  const start = document.getElementById("f-start").value;
+  const end   = document.getElementById("f-end").value;
+
+  if (!room)  return toast("Please select a conference room.", "err");
+  if (!title) return toast("Please enter a meeting title.", "err");
+  if (!date)  return toast("Please select a date.", "err");
+  if (!start || !end) return toast("Please enter start and end time.", "err");
+
+  const res = await apiFetch("/book", "POST", { room, title, date, start, end });
+
+  if (res.success) {
+    toast("Room booked successfully!");
+    document.getElementById("f-title").value = "";
+    document.getElementById("f-start").value = "";
+    document.getElementById("f-end").value   = "";
+    await fetchBookings();
+    renderBookings();
+    renderLiveStatus();
+  } else if (res.clash) {
+
+  let msg = "";
+
+  // SAFE HANDLING (important)
+  if(res.clash_info){
+    const ci = res.clash_info;
+    msg = `<strong>${room}</strong> is already booked on <strong>${date}</strong> from <strong>${ci.start}–${ci.end}</strong> by <strong>${ci.bookedBy}</strong> for "<strong>${ci.title}</strong>".<br><br>Please choose a different time slot or room.`;
+  } else {
+    msg = `❌ This room is already booked for the selected time. Please choose another slot.`;
+  }
+
+  document.getElementById("clash-body").innerHTML = msg;
+  document.getElementById("clash-overlay").classList.add("show");
+} else {
+    toast(res.error || "Booking failed.", "err");
+  }
+}
+
+function closeClash() {
+  document.getElementById("clash-overlay").classList.remove("show");
+}
+document.getElementById("clash-overlay").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeClash();
+});
+
+// ════════════════════════════════════════════
+// RENDER BOOKINGS
+// ════════════════════════════════════════════
+function renderBookings() {
+  const fr = document.getElementById("fl-room").value;
+  const fd = document.getElementById("fl-date").value;
+
+  let list = [...BOOKINGS].sort((a,b) =>
+    a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
+  if (fr) list = list.filter(b => b.room === fr);
+  if (fd) list = list.filter(b => b.date === fd);
+
+  document.getElementById("bk-count").textContent = `${list.length} booking${list.length!==1?"s":""}`;
+
+  const el = document.getElementById("bookings-list");
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>No bookings found</div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(b => {
+    const isMine = b.booked_by === ME.emp_id;
+    const canCancel = isMine || ME.role === "admin";
+    return `
+      <div class="bk ${isMine ? "mine" : ""}">
+        <div class="bk-info">
+          <div class="bk-room">🏢 ${b.room}</div>
+          <div class="bk-meta">
+            ${fmtDate(b.date)} &nbsp;•&nbsp; ${b.start} – ${b.end}<br>
+            <em>${b.title}</em>
+          </div>
+        </div>
+        <div class="bk-who">${b.booked_by}</div>
+        ${canCancel ? `<button class="btn btn-danger btn-sm" onclick="doCancel(${b.id})">✕ Cancel</button>` : ""}
+      </div>`;
+  }).join("");
+}
+
+async function doCancel(id) {
+  if (!confirm("Cancel this booking?")) return;
+  const res = await apiFetch(`/cancel/${id}`, "DELETE");
+  if (res.success) {
+    toast("Booking cancelled.");
+    await fetchBookings();
+    renderBookings();
+    renderLiveStatus();
+  } else {
+    toast(res.error || "Cancel failed.", "err");
+  }
+}
+
+// ════════════════════════════════════════════
+// LIVE STATUS
+// ════════════════════════════════════════════
+function renderLiveStatus() {
+  const td  = todayStr();
+  const now = new Date();
+  const nm  = now.getHours() * 60 + now.getMinutes();
+  const t2m = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+
+  const el = document.getElementById("live-status");
+  if (!ROOMS.length) { el.innerHTML = `<p style="color:var(--muted);font-size:.8rem;">No rooms found.</p>`; return; }
+
+  el.innerHTML = ROOMS.map(r => {
+    const busy = BOOKINGS.some(b =>
+      b.room === r.name && b.date === td && t2m(b.start) <= nm && nm < t2m(b.end));
+    return `
+      <div class="chip ${busy ? "busy" : "free"}">
+        <span class="chip-dot"></span>${r.name}
+        <div class="chip-status">${busy ? "In use now" : "Available"}</div>
+      </div>`;
+  }).join("");
+}
+
+// ════════════════════════════════════════════
+// ADMIN — USERS
+// ════════════════════════════════════════════
+async function loadUsers() {
+  const data = await apiFetch("/get_users");
+  USERS = Array.isArray(data) ? data : [];
+  const tbody = document.getElementById("users-tbody");
+  if (!USERS.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:20px;">No users found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = USERS.map(u => `
+    <tr>
+      <td>${u.emp_id}</td>
+      <td>${u.name}</td>
+      <td><span class="role-badge role-${u.role}">${u.role}</span></td>
+      <td>${u.emp_id !== "admin" ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>` : "<span style='color:var(--muted)'>Protected</span>"}</td>
+    </tr>`).join("");
+}
+
+async function addUser() {
+  const emp_id   = document.getElementById("nu-id").value.trim();
+  const name     = document.getElementById("nu-name").value.trim();
+  const password = document.getElementById("nu-pw").value.trim();
+  const role     = document.getElementById("nu-role").value;
+
+  if (!emp_id || !name || !password) return toast("All fields required.", "err");
+  const res = await apiFetch("/add_user", "POST", { emp_id, name, password, role });
+  if (res.success) {
+    toast("User added!");
+    document.getElementById("nu-id").value = "";
+    document.getElementById("nu-name").value = "";
+    document.getElementById("nu-pw").value = "";
+    loadUsers();
+  } else {
+    toast(res.error || "Failed.", "err");
+  }
+}
+
+async function deleteUser(id) {
+  if (!confirm("Delete this user?")) return;
+  const res = await apiFetch(`/delete_user/${id}`, "DELETE");
+  if (res.success) { toast("User deleted."); loadUsers(); }
+  else toast(res.error || "Failed.", "err");
+}
+
+// ════════════════════════════════════════════
+// ADMIN — ROOMS
+// ════════════════════════════════════════════
+async function loadAdminRooms() {
+  await fetchRooms();
+  const tbody = document.getElementById("rooms-tbody");
+  tbody.innerHTML = ROOMS.map(r => `
+    <tr>
+      <td>${r.name}</td>
+      <td>${r.capacity} seats</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})">Remove</button></td>
+    </tr>`).join("");
+}
+
+async function addRoom() {
+  const name     = document.getElementById("nr-name").value.trim();
+  const capacity = parseInt(document.getElementById("nr-cap").value) || 0;
+  if (!name) return toast("Room name required.", "err");
+  const res = await apiFetch("/add_room", "POST", { name, capacity });
+  if (res.success) {
+    toast("Room added!");
+    document.getElementById("nr-name").value = "";
+    document.getElementById("nr-cap").value  = "";
+    await fetchRooms();
+    populateRoomSelects();
+    loadAdminRooms();
+  } else {
+    toast(res.error || "Failed.", "err");
+  }
+}
+
+async function deleteRoom(id) {
+  if (!confirm("Remove this room? Existing bookings are kept.")) return;
+  const res = await apiFetch(`/delete_room/${id}`, "DELETE");
+  if (res.success) {
+    toast("Room removed.");
+    await fetchRooms();
+    populateRoomSelects();
+    loadAdminRooms();
+    renderLiveStatus();
+  } else {
+    toast(res.error || "Failed.", "err");
+  }
+}
+
+// ════════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════════
+function populateExportYear() {
+  const yr = new Date().getFullYear();
+  const sel = document.getElementById("exp-year");
+  sel.innerHTML = [yr-1, yr, yr+1].map(y => `<option value="${y}" ${y===yr?"selected":""}>${y}</option>`).join("");
+  // Set current month
+  const m = String(new Date().getMonth()+1).padStart(2,"0");
+  document.getElementById("exp-month").value = m;
+}
+
+function populateExportMonths() {} // year just for display; server uses current year — extend if needed
+
+function doExport() {
+  const month = document.getElementById("exp-month").value;
+  window.location.href = `/export/${month}`;
+}
+
+// ════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════
+async function apiFetch(url, method="GET", body=null) {
+  try {
+    const opts = { method, headers: {} };
+    if (body) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    const res  = await fetch(url, opts);
+    return await res.json();
+  } catch(e) {
+    return { success: false, error: "Network error" };
+  }
+}
+
+function todayStr() { return new Date().toISOString().split("T")[0]; }
+
+function fmtDate(d) {
+  return new Date(d+"T12:00:00").toLocaleDateString("en-IN",
+    { weekday:"short", day:"numeric", month:"short", year:"numeric" });
+}
+
+function toast(msg, type="ok") {
+  const t = document.getElementById("toast");
+  t.textContent = (type==="ok"?"✓ ":"✕ ") + msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+// Refresh live status every minute
+setInterval(renderLiveStatus, 60000);
+</script>
+</body>
+</html>
+
     --bg:      #0f0f13;
     --surface: #16161d;
     --card:    #1e1e28;
